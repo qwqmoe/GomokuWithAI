@@ -5,7 +5,7 @@ var isWell = false;//设置该局是否获胜
 var chessData;//定义一个二维数组用来保存棋盘的信息
 var chessType;//定义棋子类型
 
-//棋型种类数
+//棋型种类计数
 var countHumanWinFive = 0;//连5
 var countHumanLiveFour = 0;//活四
 var countHumanRushFour = 0;//冲四
@@ -30,22 +30,38 @@ var countAIDieTwo = 0;//死二
 
 var scoreHuman;//人类分数
 var scoreAI;//电脑分数
-var score;
+var scoreChessVoid;//棋盘当前空位分数
+var scoreChess;//局面评估分数
+
+var INFINITY = 999999999;
+
+var legalMoves;//当前合法着法
+
+var legalBestMovesMaxPositionX;
+var legalBestMovesMaxPositionY;
+
+var evaluatePositionX;
+var evaluatePositionY;
+
+var scoreChessVoidTemp;
 
 function initScore() {
     scoreHuman = new Array(15);
     scoreAI = new Array(15);
-    score = new Array(15);
+    scoreChessVoid = new Array(15);
+    scoreChess = new Array(15);
 
     for (var x = 0; x < 15; x++) {
         scoreHuman[x] = new Array(15);
         scoreAI[x] = new Array(15);
-        score[x] = new Array(15);
+        scoreChessVoid[x] = new Array(15);
+        scoreChess[x] = new Array(15);
 
         for (var y = 0; y < 15; y++) {
             scoreHuman[x][y] = 0;
             scoreAI[x][y] = 0;
-            score[x][y] = 0;
+            scoreChessVoid[x][y] = 0;
+            scoreChess[x][y] = 0;
         }
     }
 }
@@ -195,7 +211,7 @@ function evaluteChess(i,j) {
     if (countAILiveThree >= 1) {
         scoreAI[i][j] += 200;//活三
     }
-    if (countAILiveTwo >= 2) {
+    if (countAILiveTwo >= 2) {//TODO
         scoreAI[i][j] += 100;//双活二
     }
     if (countAISleepThree >= 1) {
@@ -204,7 +220,7 @@ function evaluteChess(i,j) {
     if (countAILiveTwo >= 1 && countAISleepTwo >= 1) {
         scoreAI[i][j] += 10;//活二眠二
     }
-    if (countAILiveTwo >= 1) {
+    if (countAILiveTwo >= 1) {//TODO
         scoreAI[i][j] += 5;//活二
     }
     if (countAISleepTwo >= 1) {
@@ -213,7 +229,22 @@ function evaluteChess(i,j) {
     if (countAIDieFour >= 1 || countAIDieThree >= 1 || countAIDieTwo) {
         scoreAI[i][j] -= 5;//死四、死三、死二
     }
+}
 
+//重置棋盘分数
+function resetScore() {
+    for (var i = 0; i < 15; i++) {
+        for (var j = 0; j < 15; j++) {
+            scoreHuman[i][j] = 0;
+            scoreAI[i][j] = 0;
+            scoreChessVoid[i][j] = 0;
+            scoreChess[i][j] = 0;
+        }
+    }
+}
+
+//重置棋型种类计数
+function resetCountChess() {
     countHumanWinFive = 0;//连5
     countHumanLiveFour = 0;//活四
     countHumanRushFour = 0;//冲四
@@ -235,7 +266,6 @@ function evaluteChess(i,j) {
     countAIDieFour = 0;//死四
     countAIDieThree = 0;//死三
     countAIDieTwo = 0;//死二
-
 }
 
 //判断棋型
@@ -2558,82 +2588,220 @@ function play(e) {
     }
 }
 
+function checkIsWell() {
+    if (isWell) {
+        if (curUser == 1) {
+            alert("你赢了");
+            return;
+        } else {
+            alert("你输了");
+            return;
+        }
+    }
+}
+
 //生成人类棋子
 function generateHumanChess(x, y) {
     drawChess(x, y);//绘制cross棋子
     checkChess(x, y);
-    evaluteChess(x, y);//TODO HUMANSCORE值不为0  只把各个count置为0
-    if (isWell) {
-        alert("你赢了");
-        return;
-    }
+    resetCountChess();
+    checkIsWell();
 }
 
-//生成AI棋子
-function generateAIChess() {
-    /*var x;
-    var y;*/
+//棋盘空位打分
+function pointChessVoid() {
 
-    curUser = 2;//设置当前玩家为circle
-
-    if (curUser == 1) {
-        chessType = 1;
-    } else {
-        chessType = 2;//设置当前棋子类型为circle
-    }
-
-    /*while (1) {
-        x = Math.floor(Math.random()*10) + Math.floor(Math.random()*6);
-        y = Math.floor(Math.random()*10) + Math.floor(Math.random()*6);
-
-        if (chessData[x][y] == 0) {
-            break;
-        }
-    }
-
-    drawChess(x, y);
-    checkChess(x, y);*/
+    scoreChessVoidTemp = Array();
 
     for (var i = 0; i < 15; i++) {
         for (var j = 0; j < 15; j++) {
             if (chessData[i][j] != 0) {
-
                 continue;
             }
 
             chessData[i][j] = chessType;
             checkChess(i,j);
             evaluteChess(i,j);
+            resetCountChess();
             curUser = 1;
             chessData[i][j] = 3 - chessType;
             chessType = 1;
             checkChess(i,j);
             evaluteChess(i,j);
-            score[i][j] = scoreAI[i][j] + scoreHuman[i][j];
+            resetCountChess();
+            scoreChessVoid[i][j] = scoreAI[i][j] + scoreHuman[i][j];//当前棋盘空位的分数等于该空位两种棋子形成棋型分数之和
+            chessData[i][j] = 0;
+            curUser = 2;
+            chessType = 2;
+            isWell = false;//TODO
+
+
+            scoreChessVoidTemp.push({x:i,y:j,z:scoreChessVoid[i][j]});
+        }
+    }
+}
+
+//局面评估函数
+function evaluateChess() {
+    /*for (var i = 0; i < 15; i++) {
+        for (var j = 0; j < 15; j++) {
+            if (chessData[i][j] != 0) {
+                continue;
+            }
+
+            chessData[i][j] = chessType;
+            checkChess(i,j);
+            evaluteChess(i,j);
+            resetCountChess();
+            curUser = 1;
+            chessData[i][j] = 3 - chessType;
+            chessType = 1;
+            checkChess(i,j);
+            evaluteChess(i,j);
+            resetCountChess();
+
+            scoreChess[i][j] = scoreAI[i][j] - scoreHuman[i][j];//当前局面的分数等于该空位电脑棋型分数减去人类棋型分数
             chessData[i][j] = 0;
             curUser = 2;
             chessType = 2;
             isWell = false;//TODO
         }
+    }*/
+
+    if (curUser == 1) {
+        checkChess(evaluatePositionX,evaluatePositionY);
+        evaluteChess(evaluatePositionX,evaluatePositionY);
+        resetCountChess();
+        curUser = 2;
+        chessType = 2;
+        chessData[evaluatePositionX][evaluatePositionY] = chessType;
+        checkChess(evaluatePositionX,evaluatePositionY);
+        evaluteChess(evaluatePositionX,evaluatePositionY);
+        resetCountChess();
+        scoreChess[evaluatePositionX][evaluatePositionY] = scoreAI[evaluatePositionX][evaluatePositionY]
+            - scoreHuman[evaluatePositionX][evaluatePositionY];
+        isWell = false;
+    } else {
+        checkChess(evaluatePositionX,evaluatePositionY);
+        evaluteChess(evaluatePositionX,evaluatePositionY);
+        resetCountChess();
+        curUser = 1;
+        chessType = 1;
+        chessData[evaluatePositionX][evaluatePositionY] = chessType;
+        checkChess(evaluatePositionX,evaluatePositionY);
+        evaluteChess(evaluatePositionX,evaluatePositionY);
+        resetCountChess();
+        scoreChess[evaluatePositionX][evaluatePositionY] = scoreAI[evaluatePositionX][evaluatePositionY]
+         - scoreHuman[evaluatePositionX][evaluatePositionY];
+        isWell = false;
+        /*curUser = 2;
+        chessType = 2;*/ //TODO 搜1层时chesstype未定义
     }
 
-    /*curUser = 1;
-    chessData[0][0] = 1;
-    chessType = 1;
-    checkChess(0,0);
-    alert(countHumanSleepTwo);
-    evaluteChess(0,0);
-    chessData[0][0] = 0;*/
+    //TODO 这里是正常的    因为1列1列的扫描  （第一次找出所有极小点里极大值的点后  后面的点就不记录了 所以应该先打分选点）
+    /*if (scoreChess[evaluatePositionX][evaluatePositionY] == -105) {
+        alert(scoreAI[evaluatePositionX][evaluatePositionY]);
+        alert(scoreHuman[evaluatePositionX][evaluatePositionY]);
+        //alert(evaluatePositionX);
+        //alert(evaluatePositionY);
+    }*/
 
-    //alert(scoreHuman[1][0]);
-    //alert(scoreHuman[0][0]);
+    return scoreChess[evaluatePositionX][evaluatePositionY];
+}
 
-    var scoreTemp = new Array(225);
+function MinMax(depth) {
+    if (curUser == 2) {　// 白方是“最大”者
+        return Max(depth);
+    } else {　　　　　　　　　　　// 黑方是“最小”者
+        return Min(depth);
+    }
+}
+
+function Max(depth) {
+    var best = -INFINITY;//TODO
+
+    if (depth <= 0) {
+        return evaluateChess();
+    }
+
+    generateMaxLegalMoves();
+
+    var val = new Array(legalMoves.length);
+
+    for (var i = 0; i < legalMoves.length; i++) {
+        curUser = 2;
+        chessType = 2;
+        //实施着法
+        chessData[legalMoves[i].x][legalMoves[i].y] = 2;
+        //反过来搜索，站在最小者一方
+        val[i] = Min(depth - 1);
+        //撤销着法
+        chessData[legalMoves[i].x][legalMoves[i].y] = 0;
+        resetScore();
+        if (val[i] > best) {
+            best = val[i];
+            //保存位置
+            legalBestMovesMaxPositionX = legalMoves[i].x;
+            legalBestMovesMaxPositionY = legalMoves[i].y;
+        }
+    }
+
+    return best;
+}
+
+function Min(depth) {
+    var best = INFINITY;　// 注意这里不同于“最大”算法
+
+    if (depth <= 0) {
+        return evaluteChess();
+    }
+    //generateLegalMoves();
+
+    var legalMovesMin = Array();
+    for (var i = 0; i < 15; i++) {
+        for (var j = 0; j < 15; j++) {
+            if (chessData[i][j] != 0) {
+                continue;
+            }
+            legalMovesMin.push({x:i,y:j});
+        }
+    }
+
+    var val = new Array(legalMovesMin.length);
+
+    for (var i = 0; i < legalMovesMin.length; i++) {
+        curUser = 1;
+        chessType = 1;
+        //实施着法
+        chessData[legalMovesMin[i].x][legalMovesMin[i].y] = 1;
+
+        evaluatePositionX = legalMovesMin[i].x;
+        evaluatePositionY = legalMovesMin[i].y;
+
+        val[i] = Max(depth - 1);
+
+        //撤销着法
+        chessData[legalMovesMin[i].x][legalMovesMin[i].y] = 0;
+        resetScore();
+        if (val[i] < best) {
+            best = val[i];
+            //TODO 保存位置坐标
+        }
+    }
+
+    return best;
+}
+
+//生成合法着法
+function generateMaxLegalMoves() {
+    pointChessVoid();
+
+    /*var scoreTemp = new Array(225);
     var n = 0;
 
     for (var i = 0; i < 15; i++) {
         for (var j = 0; j < 15; j++) {
-            scoreTemp[n] = score[i][j];
+            scoreTemp[n] = scoreChessVoid[i][j];
             n++;
         }
     }
@@ -2648,52 +2816,165 @@ function generateAIChess() {
         }
     }
 
+    //选出scoreTemp里后50个点
+    //TODO 可以先排除两格内没有棋子的点
+    legalMoves = Array();
+    var m = 224;
+    var flag = 1;
+    for (var i = 0; i < 15; i++) {
+        for (var j = 0; j < 15; j++) {
+            if (m == 174) {
+                flag = 0;
+                break;
+            }
+            if (scoreChessVoid[i][j] == scoreTemp[m]) {
+                legalMoves.push({x:i,y:j});
+                m--;
+            }
+        }
+        if (flag == 0) {
+            break;
+        }
+    }*/
+
+    /*----------------------------------------------------------------------*/
+
+    /*var scoreTemp = new Array(scoreChessVoidTemp.length);
+    var n = 0;
+
+    for (var i = 0; i < scoreChessVoidTemp.length; i++) {
+        scoreTemp[n] = scoreChessVoidTemp[i].z;
+        n++;
+    }
+
+    for (var i = 0; i < scoreTemp.length - 1; i++) {
+        for (var j = 0; j < scoreTemp.length - 1 - i; j++) {
+            if (scoreTemp[j] > scoreTemp[j + 1]) {
+                var tmp = scoreTemp[j];
+                scoreTemp[j] = scoreTemp[j + 1];
+                scoreTemp[j + 1] = tmp;
+            }
+        }
+    }
+
+    legalMoves = Array();
+    var m = scoreChessVoidTemp.length - 1;
+    var flag = 1;
+
+    //大于50个点 只找倒数50个
+    if (scoreChessVoidTemp.length > 50) {
+        for (var i = 0; i < 15; i++) {
+            for (var j = 0; j < 15; j++) {
+                if (scoreChessVoidTemp.length - 1 - m == 50) {
+                    flag = 0;
+                    break;
+                }
+                if (scoreChessVoid[i][j] == scoreTemp[m]) {//TODO 必须先把50个点在原数组中的位置保存下来
+                    for (var k = 0; k < scoreChessVoidTemp.length; k++) {
+                        if (scoreChessVoidTemp[k].x == i && scoreChessVoidTemp[k].y == j && scoreChessVoidTemp[k].z == scoreTemp[m]) {
+                            legalMoves.push({x:i,y:j});
+                            m--;
+                            break;//TODO
+                        }
+                    }
+                }
+            }
+            if (flag == 0) {
+                break;
+            }
+        }
+    } else {//小于等于就全找
+        for (var i = 0; i < 15; i++) {
+            for (var j = 0; j < 15; j++) {
+                if (m < 0) {
+                    flag = 0;
+                    break;
+                }
+                if (scoreChessVoid[i][j] == scoreTemp[m]) {
+                    for (var k = 0; k < scoreChessVoidTemp.length; k++) {
+                        if (scoreChessVoidTemp[k].x == i && scoreChessVoidTemp[k].y == j && scoreChessVoidTemp[k].z == scoreTemp[m]) {
+                            legalMoves.push({x:i,y:j});
+                            m--;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (flag == 0) {
+                break;
+            }
+        }
+    }*/
+
+    //TODO 不打分选所有点  就会先下第一个分最高的（打分后会选最好的点）
+    /*legalMoves = Array();
+    for (var k = 0; k < scoreChessVoidTemp.length; k++) {
+        legalMoves.push({x:scoreChessVoidTemp[k].x,y:scoreChessVoidTemp[k].y});
+    }*/
+
+    var sorting_array = Array();
+    for (var i = 0; i < scoreChessVoidTemp.length; i++) {
+        sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+    }
+
+    for (var i = 0; i < sorting_array.length; i++) {
+        for (var j = i + 1; j < sorting_array.length; j++) {
+            var ux = sorting_array[i].m;
+            var uy = sorting_array[i].n;
+            var vx = sorting_array[j].m;
+            var vy = sorting_array[j].n;
+            if (scoreChessVoid[ux][uy] > scoreChessVoid[vx][vy]) {
+                var temp = sorting_array[i];
+                sorting_array[i] = sorting_array[j];
+                sorting_array[j] = temp;
+            }
+        }
+    }
+
+    legalMoves = Array();
+    for (var i = sorting_array.length - 1; i > sorting_array.length - 51; i--) {
+        legalMoves.push({x:sorting_array[i].m,y:sorting_array[i].n});
+    }
+
+    resetScore();
+}
+
+//生成AI棋子
+function generateAIChess() {
+
+    curUser = 2;//设置当前玩家为circle
+
+    if (curUser == 1) {
+        chessType = 1;
+    } else {
+        chessType = 2;//设置当前棋子类型为circle
+    }
+
+    MinMax(2);
+
+    drawChess(legalBestMovesMaxPositionX, legalBestMovesMaxPositionY);
+    checkChess(legalBestMovesMaxPositionX, legalBestMovesMaxPositionY);
+
+
+    /*//随机在几个分数最大值里面取一个点
     var scoreMax = scoreTemp[224];
-    var flag = 0;
 
     var t = Array();
     for (var i = 0; i < 15; i++) {
         for (var j = 0; j < 15; j++) {
-            if (score[i][j] == scoreMax) {
+            if (scoreChessVoid[i][j] == scoreMax) {
                 t.push({x:i,y:j});
             }
         }
     }
     var s = Math.floor(Math.random()*t.length);
     drawChess(t[s].x, t[s].y);
-    checkChess(t[s].x, t[s].y);
-    evaluteChess(t[s].x, t[s].y);
-    if (isWell) {
-        alert("你输了");
-        return;
-    }
+    checkChess(t[s].x, t[s].y);*/
 
-    /*for (var i = 0; i < 15; i++) {
-        for (var j = 0; j < 15; j++) {
-            if (score[i][j] == scoreMax) {
-                drawChess(i, j);
-                checkChess(i, j);
-                evaluteChess(i, j);//TODO count置为0 和human那里一样
-                if (isWell) {
-                    alert("你输了");
-                    return;
-                }
-                flag = 1;
-                break;
-            }
-        }
-        if (flag == 1) {
-            break;
-        }
-    }*/
+    resetCountChess();
+    checkIsWell();
 
-    for (var i = 0; i < 15; i++) {
-        for (var j = 0; j < 15; j++) {
-            scoreHuman[i][j] = 0;
-            scoreAI[i][j] = 0;
-            score[i][j] = 0;
-        }
-    }
+    resetScore();
 }
 
 //页面加载完成后开始运行
