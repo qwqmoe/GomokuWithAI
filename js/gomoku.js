@@ -40,10 +40,16 @@ var legalMoves;//当前合法着法
 var legalBestMovesMaxPositionX;
 var legalBestMovesMaxPositionY;
 
-var evaluatePositionX;
-var evaluatePositionY;
+var evaluateMaxPositionX;
+var evaluateMaxPositionY;
+
+var evaluateMinPositionX;
+var evaluateMinPositionY;
 
 var scoreChessVoidTemp;
+
+var countDepthMax = 0;
+var countDepthMin = 0;
 
 function initScore() {
     scoreHuman = new Array(15);
@@ -152,7 +158,7 @@ function drawChess(x, y) {
 }
 
 //评估棋型并打分
-function evaluteChess(i,j) {
+function evaluateScore(i,j) {
 
     //人类棋型分数
     if (countHumanWinFive >= 1) {
@@ -2621,13 +2627,13 @@ function pointChessVoid() {
 
             chessData[i][j] = chessType;
             checkChess(i,j);
-            evaluteChess(i,j);
+            evaluateScore(i,j);
             resetCountChess();
             curUser = 1;
             chessData[i][j] = 3 - chessType;
             chessType = 1;
             checkChess(i,j);
-            evaluteChess(i,j);
+            evaluateScore(i,j);
             resetCountChess();
             scoreChessVoid[i][j] = scoreAI[i][j] + scoreHuman[i][j];//当前棋盘空位的分数等于该空位两种棋子形成棋型分数之和
             chessData[i][j] = 0;
@@ -2643,73 +2649,45 @@ function pointChessVoid() {
 
 //局面评估函数
 function evaluateChess() {
-    /*for (var i = 0; i < 15; i++) {
-        for (var j = 0; j < 15; j++) {
-            if (chessData[i][j] != 0) {
-                continue;
-            }
 
-            chessData[i][j] = chessType;
-            checkChess(i,j);
-            evaluteChess(i,j);
-            resetCountChess();
-            curUser = 1;
-            chessData[i][j] = 3 - chessType;
-            chessType = 1;
-            checkChess(i,j);
-            evaluteChess(i,j);
-            resetCountChess();
-
-            scoreChess[i][j] = scoreAI[i][j] - scoreHuman[i][j];//当前局面的分数等于该空位电脑棋型分数减去人类棋型分数
-            chessData[i][j] = 0;
-            curUser = 2;
-            chessType = 2;
-            isWell = false;//TODO
-        }
-    }*/
+    //alert(11111111111);//TODO 不能进这个函数
 
     if (curUser == 1) {
-        checkChess(evaluatePositionX,evaluatePositionY);
-        evaluteChess(evaluatePositionX,evaluatePositionY);
+        checkChess(evaluateMinPositionX,evaluateMinPositionY);
+        evaluateScore(evaluateMinPositionX,evaluateMinPositionY);
         resetCountChess();
         curUser = 2;
         chessType = 2;
-        chessData[evaluatePositionX][evaluatePositionY] = chessType;
-        checkChess(evaluatePositionX,evaluatePositionY);
-        evaluteChess(evaluatePositionX,evaluatePositionY);
+        chessData[evaluateMinPositionX][evaluateMinPositionY] = chessType;
+        checkChess(evaluateMinPositionX,evaluateMinPositionY);
+        evaluateScore(evaluateMinPositionX,evaluateMinPositionY);
         resetCountChess();
-        scoreChess[evaluatePositionX][evaluatePositionY] = scoreAI[evaluatePositionX][evaluatePositionY]
-            - scoreHuman[evaluatePositionX][evaluatePositionY];
+        scoreChess[evaluateMinPositionX][evaluateMinPositionY] = scoreAI[evaluateMinPositionX][evaluateMinPositionY]
+            - scoreHuman[evaluateMinPositionX][evaluateMinPositionY];
         isWell = false;
+
+        return scoreChess[evaluateMinPositionX][evaluateMinPositionY];
     } else {
-        checkChess(evaluatePositionX,evaluatePositionY);
-        evaluteChess(evaluatePositionX,evaluatePositionY);
+        checkChess(evaluateMaxPositionX,evaluateMaxPositionY);
+        evaluateScore(evaluateMaxPositionX,evaluateMaxPositionY);
         resetCountChess();
         curUser = 1;
         chessType = 1;
-        chessData[evaluatePositionX][evaluatePositionY] = chessType;
-        checkChess(evaluatePositionX,evaluatePositionY);
-        evaluteChess(evaluatePositionX,evaluatePositionY);
+        chessData[evaluateMaxPositionX][evaluateMaxPositionY] = chessType;
+        checkChess(evaluateMaxPositionX,evaluateMaxPositionY);
+        evaluateScore(evaluateMaxPositionX,evaluateMaxPositionY);
         resetCountChess();
-        scoreChess[evaluatePositionX][evaluatePositionY] = scoreAI[evaluatePositionX][evaluatePositionY]
-         - scoreHuman[evaluatePositionX][evaluatePositionY];
+        scoreChess[evaluateMaxPositionX][evaluateMaxPositionY] = scoreAI[evaluateMaxPositionX][evaluateMaxPositionY]
+         - scoreHuman[evaluateMaxPositionX][evaluateMaxPositionY];
         isWell = false;
-        /*curUser = 2;
-        chessType = 2;*/ //TODO 搜1层时chesstype未定义
+        curUser = 2;
+        chessType = 2;
+
+        return scoreChess[evaluateMaxPositionX][evaluateMaxPositionY];
     }
-
-    //TODO 这里是正常的    因为1列1列的扫描  （第一次找出所有极小点里极大值的点后  后面的点就不记录了 所以应该先打分选点）
-    /*if (scoreChess[evaluatePositionX][evaluatePositionY] == -105) {
-        alert(scoreAI[evaluatePositionX][evaluatePositionY]);
-        alert(scoreHuman[evaluatePositionX][evaluatePositionY]);
-        //alert(evaluatePositionX);
-        //alert(evaluatePositionY);
-    }*/
-
-    return scoreChess[evaluatePositionX][evaluatePositionY];
 }
 
-function MinMax(depth) {
+/*function MinMax(depth) {
     if (curUser == 2) {　// 白方是“最大”者
         return Max(depth);
     } else {　　　　　　　　　　　// 黑方是“最小”者
@@ -2720,31 +2698,120 @@ function MinMax(depth) {
 function Max(depth) {
     var best = -INFINITY;//TODO
 
+    countDepthMax++;
+
     if (depth <= 0) {
         return evaluateChess();
     }
 
-    generateMaxLegalMoves();
+    if (depth == 1) {
+        var legalMovesMax = Array();
+        for (var i = 0; i < 15; i++) {
+            for (var j = 0; j < 15; j++) {
+                if (chessData[i][j] != 0) {
+                    continue;
+                }
+                legalMovesMax.push({x:i,y:j});
+            }
+        }
 
-    var val = new Array(legalMoves.length);
+        var valMax = new Array(legalMovesMax.length);
 
-    for (var i = 0; i < legalMoves.length; i++) {
-        curUser = 2;
-        chessType = 2;
-        //实施着法
-        chessData[legalMoves[i].x][legalMoves[i].y] = 2;
-        //反过来搜索，站在最小者一方
-        val[i] = Min(depth - 1);
-        //撤销着法
-        chessData[legalMoves[i].x][legalMoves[i].y] = 0;
-        resetScore();
-        if (val[i] > best) {
-            best = val[i];
-            //保存位置
-            legalBestMovesMaxPositionX = legalMoves[i].x;
-            legalBestMovesMaxPositionY = legalMoves[i].y;
+        for (var i = 0; i < legalMovesMax.length; i++) {
+            curUser = 2;
+            chessType = 2;
+            //实施着法
+            chessData[legalMovesMax[i].x][legalMovesMax[i].y] = 2;
+
+            evaluateMaxPositionX = legalMovesMax[i].x;
+            evaluateMaxPositionY = legalMovesMax[i].y;
+
+            //反过来搜索，站在最小者一方
+            valMax[i] = Min(depth - 1);
+
+            //撤销着法
+            chessData[legalMovesMax[i].x][legalMovesMax[i].y] = 0;
+            resetScore();
+            if (valMax[i] > best) {
+                best = valMax[i];
+                if (depth == 1 && countDepthMax == 1) {
+                    //保存位置
+                    legalBestMovesMaxPositionX = legalMovesMax[i].x;
+                    legalBestMovesMaxPositionY = legalMovesMax[i].y;
+                }
+            }
+        }
+    } else {
+
+        if (depth == 2 && countDepthMax != 1) {
+            var legalMovesMaxDepth = Array();
+            for (var i = 0; i < 15; i++) {
+                for (var j = 0; j < 15; j++) {
+                    if (chessData[i][j] != 0) {
+                        continue;
+                    }
+                    legalMovesMaxDepth.push({x:i,y:j});
+                }
+            }
+
+            var valMaxDepth = new Array(legalMovesMaxDepth.length);
+
+            for (var i = 0; i < legalMovesMaxDepth.length; i++) {
+                curUser = 2;
+                chessType = 2;
+                //实施着法
+                chessData[legalMovesMaxDepth[i].x][legalMovesMaxDepth[i].y] = 2;
+
+                evaluateMaxPositionX = legalMovesMaxDepth[i].x;
+                evaluateMaxPositionY = legalMovesMaxDepth[i].y;
+
+                //反过来搜索，站在最小者一方
+                valMaxDepth[i] = Min(depth - 1);
+
+                //撤销着法
+                chessData[legalMovesMaxDepth[i].x][legalMovesMaxDepth[i].y] = 0;
+                resetScore();
+                if (valMaxDepth[i] > best) {
+                    best = valMaxDepth[i];
+                    //保存位置
+                    //legalBestMovesMaxPositionX = legalMovesMaxDepth[i].x;
+                    //legalBestMovesMaxPositionY = legalMovesMaxDepth[i].y;
+                }
+            }
+        } else {
+            generateMaxLegalMoves();
+        }
+
+        var val = new Array(legalMoves.length);
+
+        for (var i = 0; i < legalMoves.length; i++) {
+            curUser = 2;
+            chessType = 2;
+            //实施着法
+            chessData[legalMoves[i].x][legalMoves[i].y] = 2;
+
+            if (depth == 2) {
+                evaluateMaxPositionX = legalMoves[i].x;
+                evaluateMaxPositionY = legalMoves[i].y;
+            }
+
+            //反过来搜索，站在最小者一方
+            val[i] = Min(depth - 1);
+
+            //撤销着法
+            chessData[legalMoves[i].x][legalMoves[i].y] = 0;
+            resetScore();
+            if (val[i] > best) {
+                best = val[i];
+                //保存位置
+                legalBestMovesMaxPositionX = legalMoves[i].x;
+                legalBestMovesMaxPositionY = legalMoves[i].y;
+            }
         }
     }
+
+    //TODO 改成AB搜索 改成4层
+
 
     return best;
 }
@@ -2753,7 +2820,7 @@ function Min(depth) {
     var best = INFINITY;　// 注意这里不同于“最大”算法
 
     if (depth <= 0) {
-        return evaluteChess();
+        return evaluateChess();
     }
     //generateLegalMoves();
 
@@ -2775,8 +2842,8 @@ function Min(depth) {
         //实施着法
         chessData[legalMovesMin[i].x][legalMovesMin[i].y] = 1;
 
-        evaluatePositionX = legalMovesMin[i].x;
-        evaluatePositionY = legalMovesMin[i].y;
+        evaluateMinPositionX = legalMovesMin[i].x;
+        evaluateMinPositionY = legalMovesMin[i].y;
 
         val[i] = Max(depth - 1);
 
@@ -2790,131 +2857,304 @@ function Min(depth) {
     }
 
     return best;
+}*/
+
+function MinMax(depth, alpha, beta) {
+    if (curUser == 2) {　// 白方是“最大”者
+        return Max(depth, alpha, beta);
+    } else {　　　　　　　　　　　// 黑方是“最小”者
+        return Min(depth, alpha, beta);
+    }
+}
+
+function Max(depth, alpha, beta) {
+
+    countDepthMax++;
+
+    if (depth <= 0) {
+        return evaluateChess();
+    }
+
+    if (depth == 1) {
+        var legalMovesMax = Array();
+        for (var i = 0; i < 15; i++) {
+            for (var j = 0; j < 15; j++) {
+                if (chessData[i][j] != 0) {
+                    continue;
+                }
+                legalMovesMax.push({x:i,y:j});
+            }
+        }
+
+        var valMax = new Array(legalMovesMax.length);
+
+        for (var i = 0; i < legalMovesMax.length; i++) {
+            curUser = 2;
+            chessType = 2;
+            //实施着法
+            chessData[legalMovesMax[i].x][legalMovesMax[i].y] = 2;
+
+            evaluateMaxPositionX = legalMovesMax[i].x;
+            evaluateMaxPositionY = legalMovesMax[i].y;
+
+            //反过来搜索，站在最小者一方
+            valMax[i] = Min(depth - 1, -beta, -alpha);
+
+            //撤销着法
+            chessData[legalMovesMax[i].x][legalMovesMax[i].y] = 0;
+            resetScore();
+            if (valMax[i] >= beta) {
+                return beta;
+            }
+            if (valMax[i] > alpha) {
+                alpha = valMax[i];
+                if (depth == 1 && countDepthMax == 1) {
+                    //保存位置
+                    legalBestMovesMaxPositionX = legalMovesMax[i].x;
+                    legalBestMovesMaxPositionY = legalMovesMax[i].y;
+                }
+            }
+        }
+    } else {
+
+        if (depth == 2 && countDepthMax != 1) {
+            var legalMovesMaxDepth = Array();
+            for (var i = 0; i < 15; i++) {
+                for (var j = 0; j < 15; j++) {
+                    if (chessData[i][j] != 0) {
+                        continue;
+                    }
+                    legalMovesMaxDepth.push({x:i,y:j});
+                }
+            }
+
+            var valMaxDepth = new Array(legalMovesMaxDepth.length);
+
+            for (var i = 0; i < legalMovesMaxDepth.length; i++) {
+                curUser = 2;
+                chessType = 2;
+                //实施着法
+                chessData[legalMovesMaxDepth[i].x][legalMovesMaxDepth[i].y] = 2;
+
+                evaluateMaxPositionX = legalMovesMaxDepth[i].x;
+                evaluateMaxPositionY = legalMovesMaxDepth[i].y;
+
+                //反过来搜索，站在最小者一方
+                valMaxDepth[i] = Min(depth - 1, -beta, -alpha);
+
+                //撤销着法
+                chessData[legalMovesMaxDepth[i].x][legalMovesMaxDepth[i].y] = 0;
+                resetScore();
+                if (valMaxDepth[i] >= beta) {
+                    return beta;
+                }
+                if (valMaxDepth[i] > alpha) {
+                    alpha = valMaxDepth[i];
+                }
+            }
+        } else {
+            generateMaxLegalMoves();
+        }
+
+        var val = new Array(legalMoves.length);
+
+        for (var i = 0; i < legalMoves.length; i++) {
+            curUser = 2;
+            chessType = 2;
+            //实施着法
+            chessData[legalMoves[i].x][legalMoves[i].y] = 2;
+
+            if (depth == 2) {
+                evaluateMaxPositionX = legalMoves[i].x;
+                evaluateMaxPositionY = legalMoves[i].y;
+            }
+
+            //反过来搜索，站在最小者一方
+            val[i] = Min(depth - 1, -beta, -alpha);
+
+            //撤销着法
+            chessData[legalMoves[i].x][legalMoves[i].y] = 0;
+            resetScore();
+            if (val[i] >= beta) {
+                return beta;
+            }
+            if (val[i] > alpha) {
+                alpha = val[i];
+                legalBestMovesMaxPositionX = legalMoves[i].x;
+                legalBestMovesMaxPositionY = legalMoves[i].y;
+            }
+        }
+    }
+
+    return alpha;
+}
+
+function Min(depth, alpha, beta) {
+
+    countDepthMin++;
+
+    if (depth <= 0) {
+        return evaluateChess();
+    }
+
+    //TODO depth==2
+    if (depth == 1 && countDepthMin != 1) {
+        var legalMovesMinDepth = Array();
+        for (var i = 0; i < 15; i++) {
+            for (var j = 0; j < 15; j++) {
+                if (chessData[i][j] != 0) {
+                    continue;
+                }
+                legalMovesMinDepth.push({x: i, y: j});
+            }
+        }
+
+        var valMinDepth = new Array(legalMovesMinDepth.length);
+
+        for (var i = 0; i < legalMovesMinDepth.length; i++) {
+            curUser = 1;
+            chessType = 1;
+            //实施着法
+            chessData[legalMovesMinDepth[i].x][legalMovesMinDepth[i].y] = 1;
+
+            evaluateMinPositionX = legalMovesMinDepth[i].x;
+            evaluateMinPositionY = legalMovesMinDepth[i].y;
+
+            //反过来搜索，站在最小者一方
+            valMinDepth[i] = Max(depth - 1, -beta, -alpha);
+
+            //撤销着法
+            chessData[legalMovesMinDepth[i].x][legalMovesMinDepth[i].y] = 0;
+            resetScore();
+            if (valMinDepth[i] >= beta) {
+                return beta;
+            }
+            if (valMinDepth[i] > alpha) {
+                alpha = valMinDepth[i];
+            }
+        }
+
+        return alpha;
+    }
+
+    var legalMovesMin = Array();
+    for (var i = 0; i < 15; i++) {
+        for (var j = 0; j < 15; j++) {
+            if (chessData[i][j] != 0) {
+                continue;
+            }
+            legalMovesMin.push({x:i,y:j});
+        }
+    }
+
+    var val = new Array(legalMovesMin.length);
+
+    for (var i = 0; i < legalMovesMin.length; i++) {
+        curUser = 1;
+        chessType = 1;
+        //实施着法
+        chessData[legalMovesMin[i].x][legalMovesMin[i].y] = 1;
+
+        if (depth == 1) {
+            evaluateMinPositionX = legalMovesMin[i].x;
+            evaluateMinPositionY = legalMovesMin[i].y;
+        }
+
+        val[i] = Max(depth - 1, -beta, -alpha);
+
+        //撤销着法
+        chessData[legalMovesMin[i].x][legalMovesMin[i].y] = 0;
+        resetScore();
+        if (val[i] >= beta) {
+            return beta;
+        }
+        if (val[i] > alpha) {
+            alpha = val[i];
+        }
+    }
+
+    return alpha;
 }
 
 //生成合法着法
 function generateMaxLegalMoves() {
     pointChessVoid();
 
-    /*var scoreTemp = new Array(225);
-    var n = 0;
-
-    for (var i = 0; i < 15; i++) {
-        for (var j = 0; j < 15; j++) {
-            scoreTemp[n] = scoreChessVoid[i][j];
-            n++;
-        }
-    }
-
-    for (var i = 0; i < scoreTemp.length - 1; i++) {
-        for (var j = 0; j < scoreTemp.length - 1 - i; j++) {
-            if (scoreTemp[j] > scoreTemp[j + 1]) {
-                var tmp = scoreTemp[j];
-                scoreTemp[j] = scoreTemp[j + 1];
-                scoreTemp[j + 1] = tmp;
-            }
-        }
-    }
-
-    //选出scoreTemp里后50个点
-    //TODO 可以先排除两格内没有棋子的点
-    legalMoves = Array();
-    var m = 224;
-    var flag = 1;
-    for (var i = 0; i < 15; i++) {
-        for (var j = 0; j < 15; j++) {
-            if (m == 174) {
-                flag = 0;
-                break;
-            }
-            if (scoreChessVoid[i][j] == scoreTemp[m]) {
-                legalMoves.push({x:i,y:j});
-                m--;
-            }
-        }
-        if (flag == 0) {
-            break;
-        }
-    }*/
-
-    /*----------------------------------------------------------------------*/
-
-    /*var scoreTemp = new Array(scoreChessVoidTemp.length);
-    var n = 0;
-
-    for (var i = 0; i < scoreChessVoidTemp.length; i++) {
-        scoreTemp[n] = scoreChessVoidTemp[i].z;
-        n++;
-    }
-
-    for (var i = 0; i < scoreTemp.length - 1; i++) {
-        for (var j = 0; j < scoreTemp.length - 1 - i; j++) {
-            if (scoreTemp[j] > scoreTemp[j + 1]) {
-                var tmp = scoreTemp[j];
-                scoreTemp[j] = scoreTemp[j + 1];
-                scoreTemp[j + 1] = tmp;
-            }
-        }
-    }
-
-    legalMoves = Array();
-    var m = scoreChessVoidTemp.length - 1;
-    var flag = 1;
-
-    //大于50个点 只找倒数50个
-    if (scoreChessVoidTemp.length > 50) {
-        for (var i = 0; i < 15; i++) {
-            for (var j = 0; j < 15; j++) {
-                if (scoreChessVoidTemp.length - 1 - m == 50) {
-                    flag = 0;
-                    break;
-                }
-                if (scoreChessVoid[i][j] == scoreTemp[m]) {//TODO 必须先把50个点在原数组中的位置保存下来
-                    for (var k = 0; k < scoreChessVoidTemp.length; k++) {
-                        if (scoreChessVoidTemp[k].x == i && scoreChessVoidTemp[k].y == j && scoreChessVoidTemp[k].z == scoreTemp[m]) {
-                            legalMoves.push({x:i,y:j});
-                            m--;
-                            break;//TODO
-                        }
-                    }
-                }
-            }
-            if (flag == 0) {
-                break;
-            }
-        }
-    } else {//小于等于就全找
-        for (var i = 0; i < 15; i++) {
-            for (var j = 0; j < 15; j++) {
-                if (m < 0) {
-                    flag = 0;
-                    break;
-                }
-                if (scoreChessVoid[i][j] == scoreTemp[m]) {
-                    for (var k = 0; k < scoreChessVoidTemp.length; k++) {
-                        if (scoreChessVoidTemp[k].x == i && scoreChessVoidTemp[k].y == j && scoreChessVoidTemp[k].z == scoreTemp[m]) {
-                            legalMoves.push({x:i,y:j});
-                            m--;
-                            break;
-                        }
-                    }
-                }
-            }
-            if (flag == 0) {
-                break;
-            }
-        }
-    }*/
-
-    //TODO 不打分选所有点  就会先下第一个分最高的（打分后会选最好的点）
-    /*legalMoves = Array();
-    for (var k = 0; k < scoreChessVoidTemp.length; k++) {
-        legalMoves.push({x:scoreChessVoidTemp[k].x,y:scoreChessVoidTemp[k].y});
-    }*/
-
     var sorting_array = Array();
     for (var i = 0; i < scoreChessVoidTemp.length; i++) {
-        sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+        //排除各方向两格内没有棋子的点
+
+        //上下
+        if (scoreChessVoidTemp[i].y - 1 >= 0 && chessData[scoreChessVoidTemp[i].x][scoreChessVoidTemp[i].y - 1] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].y - 2 >= 0 && chessData[scoreChessVoidTemp[i].x][scoreChessVoidTemp[i].y - 2] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].y + 1 < 15 && chessData[scoreChessVoidTemp[i].x][scoreChessVoidTemp[i].y + 1] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].y + 2 < 15 && chessData[scoreChessVoidTemp[i].x][scoreChessVoidTemp[i].y + 2] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+
+        //左右
+        if (scoreChessVoidTemp[i].x - 1 >= 0 && chessData[scoreChessVoidTemp[i].x - 1][scoreChessVoidTemp[i].y] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].x - 2 >= 0 && chessData[scoreChessVoidTemp[i].x - 2][scoreChessVoidTemp[i].y] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].x + 1 < 15 && chessData[scoreChessVoidTemp[i].x + 1][scoreChessVoidTemp[i].y] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].x + 2 < 15 && chessData[scoreChessVoidTemp[i].x + 2][scoreChessVoidTemp[i].y] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+
+        //左上右下
+        if (scoreChessVoidTemp[i].x - 1 >= 0 && scoreChessVoidTemp[i].y - 1 >= 0 && chessData[scoreChessVoidTemp[i].x - 1][scoreChessVoidTemp[i].y - 1] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].x - 2 >= 0 && scoreChessVoidTemp[i].y - 2 >= 0 && chessData[scoreChessVoidTemp[i].x - 2][scoreChessVoidTemp[i].y - 2] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].x + 1 < 15 && scoreChessVoidTemp[i].y + 1 < 15 && chessData[scoreChessVoidTemp[i].x + 1][scoreChessVoidTemp[i].y + 1] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].x + 2 < 15 && scoreChessVoidTemp[i].y + 2 < 15 && chessData[scoreChessVoidTemp[i].x + 2][scoreChessVoidTemp[i].y + 2] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+
+        //右上左下
+        if (scoreChessVoidTemp[i].x + 1 < 15 && scoreChessVoidTemp[i].y - 1 >= 0 && chessData[scoreChessVoidTemp[i].x + 1][scoreChessVoidTemp[i].y - 1] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].x + 2 < 15 && scoreChessVoidTemp[i].y - 2 >= 0 && chessData[scoreChessVoidTemp[i].x + 2][scoreChessVoidTemp[i].y - 2] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].x - 1 >= 0 && scoreChessVoidTemp[i].y + 1 < 15 && chessData[scoreChessVoidTemp[i].x - 1][scoreChessVoidTemp[i].y + 1] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
+        if (scoreChessVoidTemp[i].x - 2 >= 0 && scoreChessVoidTemp[i].y + 2 < 15 && chessData[scoreChessVoidTemp[i].x - 2][scoreChessVoidTemp[i].y + 2] != 0) {
+            sorting_array.push({m:scoreChessVoidTemp[i].x,n:scoreChessVoidTemp[i].y});
+            continue;
+        }
     }
 
     for (var i = 0; i < sorting_array.length; i++) {
@@ -2932,9 +3172,17 @@ function generateMaxLegalMoves() {
     }
 
     legalMoves = Array();
-    for (var i = sorting_array.length - 1; i > sorting_array.length - 51; i--) {
-        legalMoves.push({x:sorting_array[i].m,y:sorting_array[i].n});
+    //大于50个点 只找倒数50个
+    if (sorting_array.length > 50) {
+        for (var i = sorting_array.length - 1; i > sorting_array.length - 51; i--) {
+            legalMoves.push({x:sorting_array[i].m,y:sorting_array[i].n});
+        }
+    } else {//小于等于就全找
+        for (var i = sorting_array.length - 1; i > -1; i--) {
+            legalMoves.push({x:sorting_array[i].m,y:sorting_array[i].n});
+        }
     }
+
 
     resetScore();
 }
@@ -2950,7 +3198,10 @@ function generateAIChess() {
         chessType = 2;//设置当前棋子类型为circle
     }
 
-    MinMax(2);
+    MinMax(4, -INFINITY, INFINITY);
+
+    countDepthMax = 0;
+    countDepthMin = 0;
 
     drawChess(legalBestMovesMaxPositionX, legalBestMovesMaxPositionY);
     checkChess(legalBestMovesMaxPositionX, legalBestMovesMaxPositionY);
